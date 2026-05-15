@@ -1,7 +1,7 @@
 # Build e pubblicazione su GitHub Pages (project site).
 # URL: https://MartaSant.github.io/pizzawebapp/
 #
-# Abilita su GitHub: Settings → Pages → Source: GitHub Actions
+# Repo → Settings → Pages → Source: GitHub Actions
 
 name: Deploy GitHub Pages
 
@@ -20,8 +20,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -33,16 +36,12 @@ jobs:
       - run: npm ci
       - run: npm run build:pages
 
+      - uses: actions/configure-pages@v5
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
