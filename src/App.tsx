@@ -27,6 +27,12 @@ function MainSessionLayout() {
   )
 }
 
+/** Vite `BASE_URL` ends with `/`; React Router `basename` must not. */
+function viteRouterBasename(): string | undefined {
+  const trimmed = import.meta.env.BASE_URL.replace(/\/$/, '')
+  return trimmed === '' ? undefined : trimmed
+}
+
 export default function App() {
   useEffect(() => {
     void purgeOldOrders()
@@ -34,7 +40,7 @@ export default function App() {
 
   return (
     <SessionProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={viteRouterBasename()}>
         <AppThemeRoot>
           <Routes>
             <Route path="/" element={<RootRedirect />} />
