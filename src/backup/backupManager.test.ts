@@ -12,7 +12,7 @@ const menuPayload = () =>
     menuCatalog: true,
     pizze: [
       {
-        nome: 'Margherita — pomodoro, mozzarella',
+        nome: 'Margherita — Pomodoro, fior di latte, formaggio, olio d\'oliva e basilico',
         prezzoCentesimi: 800,
         attiva: true,
         ordineVisualizzazione: 0,

@@ -2,6 +2,7 @@ import { AppThemeMode, normalizeThemeMode } from '../domain/appThemeMode'
 import { formatReceipt } from '../domain/receiptFormatter'
 import type { ReceiptBibitaLine, ReceiptData, ReceiptModLine, ReceiptPizzaLine } from '../domain/receiptModels'
 import { OrderNumberService } from '../domain/orderNumber'
+import { pizzaNomePerOrdine } from '../domain/pizzaNome'
 import { PinHasher } from '../auth/pinHasher'
 import { UserRole } from '../auth/userRole'
 import { db } from '../db/database'
@@ -482,7 +483,7 @@ export async function loadOrderIntoCart(orderId: number): Promise<OrderCartLoad>
     pizze.push({
       localId: newLocalIdFallback(idx),
       pizzaId: row.pizzaId,
-      nome: row.nomeSnapshot,
+      nome: pizzaNomePerOrdine(row.nomeSnapshot),
       prezzoBaseCentesimi: row.prezzoBaseSnapshot,
       mods,
       nota: row.noteLibere,

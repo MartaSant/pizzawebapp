@@ -12,6 +12,7 @@ import {
 } from '../data/repositories'
 import type { CartBibitaLine, CartPizzaLine, OrderCartLoad } from '../data/cartTypes'
 import { lineTotalBibita, lineTotalPizza, newLocalId } from '../data/cartTypes'
+import { pizzaNomePerOrdine } from '../domain/pizzaNome'
 import { useSession } from '../auth/SessionContext'
 import { onOrderConfirmed } from '../util/feedback'
 
@@ -104,7 +105,7 @@ export function OrderCartProvider({ children }: { children: ReactNode }) {
       {
         localId: newLocalId(),
         pizzaId: pizza.id ?? null,
-        nome: pizza.nome,
+        nome: pizzaNomePerOrdine(pizza.nome),
         prezzoBaseCentesimi: pizza.prezzoCentesimi,
         mods: [],
         nota: null,
