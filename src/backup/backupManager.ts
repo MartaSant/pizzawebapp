@@ -18,16 +18,18 @@ function appStateToJson(s: AppStateEntity): Record<string, unknown> {
   }
 }
 
-function appStateFromJson(j: Record<string, unknown>, current: AppStateEntity): AppStateEntity {
+function appStateFromJson(j: Record<string, unknown> | null | undefined, current: AppStateEntity): AppStateEntity {
+  const src =
+    j != null && typeof j === 'object' && !Array.isArray(j) ? (j as Record<string, unknown>) : {}
   return {
     ...current,
-    wizardCompletato: Boolean(j.wizardCompletato ?? current.wizardCompletato),
-    nomePizzeria: String(j.nomePizzeria ?? current.nomePizzeria),
-    recoveryCodeHash: String(j.recoveryCodeHash ?? current.recoveryCodeHash),
-    nextOrderNumber: Number(j.nextOrderNumber ?? current.nextOrderNumber),
-    confirmFeedback: String(j.confirmFeedback ?? current.confirmFeedback),
-    printerMac: j.printerMac == null || j.printerMac === null ? null : String(j.printerMac),
-    themeMode: normalizeThemeMode(String(j.themeMode ?? current.themeMode)),
+    wizardCompletato: Boolean(src.wizardCompletato ?? current.wizardCompletato),
+    nomePizzeria: String(src.nomePizzeria ?? current.nomePizzeria),
+    recoveryCodeHash: String(src.recoveryCodeHash ?? current.recoveryCodeHash),
+    nextOrderNumber: Number(src.nextOrderNumber ?? current.nextOrderNumber),
+    confirmFeedback: String(src.confirmFeedback ?? current.confirmFeedback),
+    printerMac: src.printerMac == null || src.printerMac === null ? null : String(src.printerMac),
+    themeMode: normalizeThemeMode(String(src.themeMode ?? current.themeMode)),
   }
 }
 
@@ -221,10 +223,67 @@ export async function exportJson(): Promise<string> {
   return JSON.stringify(root, null, 2)
 }
 
+/**
+ * Sostituisce solo `pizze`, `modificatori`, `bibite`.
+ * Azzera `pizzaId` / `modificatoreId` / `bibitaId` sulle righe ordine storiche
+ * (nomi e prezzi snapshot restano per ricevute).
+ */
+export async function importMenuCatalog(json: string): Promise<void> {
+  const root = JSON.parse(json) as Record<string, unknown>
+  if (Number(root.schemaVersion ?? 0) !== SCHEMA_VERSION) {
+    throw new Error('Versione catalogo non supportata')
+  }
+  if (root.menuCatalog !== true) {
+    throw new Error('File non è un catalogo menu (serve "menuCatalog": true)')
+  }
+  const pizze = root.pizze
+  const modificatori = root.modificatori
+  const bibite = root.bibite
+  if (!Array.isArray(pizze) || !Array.isArray(modificatori) || !Array.isArray(bibite)) {
+    throw new Error('pizze, modificatori e bibite devono essere array')
+  }
+
+  await db.transaction(
+    'rw',
+    [db.orderLinePizza, db.orderLinePizzaMod, db.orderLineBibita, db.pizze, db.modificatori, db.bibite],
+    async () => {
+      await db.orderLinePizza.toCollection().modify({ pizzaId: null })
+      await db.orderLinePizzaMod.toCollection().modify({ modificatoreId: null })
+      await db.orderLineBibita.toCollection().modify({ bibitaId: null })
+
+      await db.pizze.clear()
+      await db.modificatori.clear()
+      await db.bibite.clear()
+
+      for (const row of pizze) {
+        await db.pizze.add(pizzaFromJson(row as Record<string, unknown>))
+      }
+      for (const row of modificatori) {
+        await db.modificatori.add(modFromJson(row as Record<string, unknown>))
+      }
+      for (const row of bibite) {
+        await db.bibite.add(bibFromJson(row as Record<string, unknown>))
+      }
+    },
+  )
+}
+
 export async function importJson(json: string): Promise<void> {
   const root = JSON.parse(json) as Record<string, unknown>
   if (Number(root.schemaVersion ?? 0) !== SCHEMA_VERSION) {
     throw new Error('Versione backup non supportata')
+  }
+  if (root.menuCatalog === true) {
+    throw new Error('Questo è un catalogo menu (solo pizze/modificatori/bibite). Usa «Importa solo menu», non «Importa backup».')
+  }
+  if (root.appState == null || typeof root.appState !== 'object' || Array.isArray(root.appState)) {
+    throw new Error('Backup non valido: manca il campo appState.')
+  }
+  if (!Array.isArray(root.users)) {
+    throw new Error('Backup non valido: manca l\'array users.')
+  }
+  if (!Array.isArray(root.pizze) || !Array.isArray(root.modificatori) || !Array.isArray(root.bibite)) {
+    throw new Error('Backup non valido: servono gli array pizze, modificatori e bibite.')
   }
 
   await db.transaction(

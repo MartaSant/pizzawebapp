@@ -19,17 +19,19 @@ import {
   upsertModificatore,
   upsertPizza,
 } from '../data/repositories'
-import { exportJson, importJson } from '../backup/backupManager'
+import { exportJson, importJson, importMenuCatalog } from '../backup/backupManager'
 import { db } from '../db/database'
 import type { BibitaEntity, ModificatoreEntity, PizzaEntity } from '../db/types'
 
-const TABS = ['Pizze', 'Modificatori', 'Bibite', 'Utenti', 'Backup', 'Impostazioni'] as const
+/** Backup subito dopo Pizze: su schermi stretti la riga tab scrolla e «Backup» altrimenti finisce fuori vista. */
+const TABS = ['Pizze', 'Backup', 'Modificatori', 'Bibite', 'Utenti', 'Impostazioni'] as const
 
 export function AdminTab() {
   const { isAdmin } = useSession()
   const [section, setSection] = useState(0)
   const [msg, setMsg] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const menuFileRef = useRef<HTMLInputElement>(null)
 
   const pizze = useLiveQuery(() => db.pizze.orderBy('ordineVisualizzazione').toArray(), [])
   const mods = useLiveQuery(() => db.modificatori.orderBy('ordineVisualizzazione').toArray(), [])
@@ -61,43 +63,38 @@ export function AdminTab() {
         />
       )}
       {section === 1 && (
-        <MenuSection
-          title="Modificatore"
-          items={mods ?? []}
-          onSave={(id, nome, prezzo, attiva, ordine) =>
-            void upsertModificatore(id, nome, prezzo, attiva, ordine).then(() => setMsg('Salvato')).catch((e) => setMsg(String(e.message)))
-          }
-          onDelete={(id) => void deleteModificatoreById(id).then(() => setMsg('Eliminato')).catch((e) => setMsg(String(e.message)))}
-        />
-      )}
-      {section === 2 && (
-        <MenuSection
-          title="Bibita"
-          items={bibite ?? []}
-          onSave={(id, nome, prezzo, attiva, ordine) => void upsertBibita(id, nome, prezzo, attiva, ordine).then(() => setMsg('Salvato')).catch((e) => setMsg(String(e.message)))}
-          onDelete={(id) => void deleteBibitaById(id).then(() => setMsg('Eliminato')).catch((e) => setMsg(String(e.message)))}
-        />
-      )}
-      {section === 3 && (
-        <UsersSection
-          onCreate={async (username, pin, role) => {
-            try {
-              const len = role === UserRole.ADMIN ? 6 : 4
-              if (pin.length !== len) throw new Error(`PIN: ${len} cifre`)
-              await createUser(username, pin, role)
-              setMsg('Utente creato')
-            } catch (e) {
-              setMsg(e instanceof Error ? e.message : 'Errore')
-            }
-          }}
-          users={users ?? []}
-        />
-      )}
-      {section === 4 && (
         <div className="stack">
+          <h3 className="section-title">Solo listino (consigliato per JSON catalogo)</h3>
+          <input
+            ref={menuFileRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (!f) return
+              const reader = new FileReader()
+              reader.onload = () => {
+                void importMenuCatalog(String(reader.result))
+                  .then(() => setMsg('Menu importato (utenti e ordini invariati)'))
+                  .catch((err) => setMsg(err instanceof Error ? err.message : 'Errore import menu'))
+              }
+              reader.readAsText(f)
+              e.target.value = ''
+            }}
+          />
+          <button type="button" className="primary" onClick={() => menuFileRef.current?.click()}>
+            Importa solo menu
+          </button>
+          <p className="hint">
+            File con <code>menuCatalog: true</code> (es. listino Glovo). Sostituisce solo pizze, modificatori e
+            bibite; utenti e ordini restano. Per file di backup completo usa la sezione sotto.
+          </p>
+
+          <h3 className="section-title">Backup completo</h3>
           <button
             type="button"
-            className="primary"
+            className="secondary"
             onClick={async () => {
               try {
                 const json = await exportJson()
@@ -135,8 +132,46 @@ export function AdminTab() {
           <button type="button" className="secondary" onClick={() => fileRef.current?.click()}>
             Importa backup
           </button>
-          <p className="hint">Attenzione: l&apos;import sostituisce tutti i presenti dati (come su Android).</p>
+          <p className="hint">Sostituisce tutti i dati (utenti, ordini, menu). Non usare per il solo file catalogo.</p>
+
+          <p className="hint">
+            Ordini passati: dopo «Importa solo menu» gli ID nel menu cambiano; sulle righe storiche azzeriamo i
+            riferimenti agli ID, ma nome e prezzi negli scontrini restano quelli salvati all&apos;ordine.
+          </p>
         </div>
+      )}
+      {section === 2 && (
+        <MenuSection
+          title="Modificatore"
+          items={mods ?? []}
+          onSave={(id, nome, prezzo, attiva, ordine) =>
+            void upsertModificatore(id, nome, prezzo, attiva, ordine).then(() => setMsg('Salvato')).catch((e) => setMsg(String(e.message)))
+          }
+          onDelete={(id) => void deleteModificatoreById(id).then(() => setMsg('Eliminato')).catch((e) => setMsg(String(e.message)))}
+        />
+      )}
+      {section === 3 && (
+        <MenuSection
+          title="Bibita"
+          items={bibite ?? []}
+          onSave={(id, nome, prezzo, attiva, ordine) => void upsertBibita(id, nome, prezzo, attiva, ordine).then(() => setMsg('Salvato')).catch((e) => setMsg(String(e.message)))}
+          onDelete={(id) => void deleteBibitaById(id).then(() => setMsg('Eliminato')).catch((e) => setMsg(String(e.message)))}
+        />
+      )}
+      {section === 4 && (
+        <UsersSection
+          onCreate={async (username, pin, role) => {
+            try {
+              const len = role === UserRole.ADMIN ? 6 : 4
+              if (pin.length !== len) throw new Error(`PIN: ${len} cifre`)
+              await createUser(username, pin, role)
+              setMsg('Utente creato')
+            } catch (e) {
+              setMsg(e instanceof Error ? e.message : 'Errore')
+            }
+          }}
+          users={users ?? []}
+        />
       )}
       {section === 5 && appState && (
         <SettingsSection
