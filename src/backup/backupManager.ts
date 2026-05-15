@@ -1,0 +1,301 @@
+import { normalizeThemeMode } from '../domain/appThemeMode'
+import { db } from '../db/database'
+import type { AppStateEntity } from '../db/types'
+import { defaultAppState } from '../db/types'
+import type { BibitaEntity, ModificatoreEntity, OrderEntity, OrderLineBibitaEntity, OrderLinePizzaEntity, OrderLinePizzaModEntity, PizzaEntity, UserEntity } from '../db/types'
+
+export const SCHEMA_VERSION = 1
+
+function appStateToJson(s: AppStateEntity): Record<string, unknown> {
+  return {
+    wizardCompletato: s.wizardCompletato,
+    nomePizzeria: s.nomePizzeria,
+    recoveryCodeHash: s.recoveryCodeHash,
+    nextOrderNumber: s.nextOrderNumber,
+    confirmFeedback: s.confirmFeedback,
+    printerMac: s.printerMac ?? null,
+    themeMode: s.themeMode,
+  }
+}
+
+function appStateFromJson(j: Record<string, unknown>, current: AppStateEntity): AppStateEntity {
+  return {
+    ...current,
+    wizardCompletato: Boolean(j.wizardCompletato ?? current.wizardCompletato),
+    nomePizzeria: String(j.nomePizzeria ?? current.nomePizzeria),
+    recoveryCodeHash: String(j.recoveryCodeHash ?? current.recoveryCodeHash),
+    nextOrderNumber: Number(j.nextOrderNumber ?? current.nextOrderNumber),
+    confirmFeedback: String(j.confirmFeedback ?? current.confirmFeedback),
+    printerMac: j.printerMac == null || j.printerMac === null ? null : String(j.printerMac),
+    themeMode: normalizeThemeMode(String(j.themeMode ?? current.themeMode)),
+  }
+}
+
+function userToJson(u: UserEntity): Record<string, unknown> {
+  return {
+    username: u.username,
+    pinHash: u.pinHash,
+    role: u.role,
+    attivo: u.attivo,
+  }
+}
+
+function userFromJson(o: Record<string, unknown>): Omit<UserEntity, 'id'> {
+  return {
+    username: String(o.username),
+    pinHash: String(o.pinHash),
+    role: String(o.role),
+    attivo: o.attivo !== false,
+  }
+}
+
+function pizzaToJson(p: PizzaEntity): Record<string, unknown> {
+  return {
+    nome: p.nome,
+    prezzoCentesimi: p.prezzoCentesimi,
+    attiva: p.attiva,
+    ordineVisualizzazione: p.ordineVisualizzazione,
+  }
+}
+
+function pizzaFromJson(o: Record<string, unknown>): Omit<PizzaEntity, 'id'> {
+  return {
+    nome: String(o.nome),
+    prezzoCentesimi: Number(o.prezzoCentesimi),
+    attiva: o.attiva !== false,
+    ordineVisualizzazione: Number(o.ordineVisualizzazione ?? 0),
+  }
+}
+
+function modToJson(m: ModificatoreEntity): Record<string, unknown> {
+  return {
+    nome: m.nome,
+    prezzoCentesimi: m.prezzoCentesimi,
+    attiva: m.attiva,
+    ordineVisualizzazione: m.ordineVisualizzazione,
+  }
+}
+
+function modFromJson(o: Record<string, unknown>): Omit<ModificatoreEntity, 'id'> {
+  return {
+    nome: String(o.nome),
+    prezzoCentesimi: Number(o.prezzoCentesimi),
+    attiva: o.attiva !== false,
+    ordineVisualizzazione: Number(o.ordineVisualizzazione ?? 0),
+  }
+}
+
+function bibToJson(b: BibitaEntity): Record<string, unknown> {
+  return {
+    nome: b.nome,
+    prezzoCentesimi: b.prezzoCentesimi,
+    attiva: b.attiva,
+    ordineVisualizzazione: b.ordineVisualizzazione,
+  }
+}
+
+function bibFromJson(o: Record<string, unknown>): Omit<BibitaEntity, 'id'> {
+  return {
+    nome: String(o.nome),
+    prezzoCentesimi: Number(o.prezzoCentesimi),
+    attiva: o.attiva !== false,
+    ordineVisualizzazione: Number(o.ordineVisualizzazione ?? 0),
+  }
+}
+
+function orderToJson(o: OrderEntity): Record<string, unknown> {
+  return {
+    numeroDisplay: o.numeroDisplay,
+    nomeCliente: o.nomeCliente,
+    createdAt: o.createdAt,
+    totaleCentesimi: o.totaleCentesimi,
+    createdByUserId: o.createdByUserId,
+    receiptSnapshot: o.receiptSnapshot,
+  }
+}
+
+function orderFromJson(o: Record<string, unknown>): Omit<OrderEntity, 'id'> {
+  return {
+    numeroDisplay: Number(o.numeroDisplay),
+    nomeCliente: o.nomeCliente == null ? null : String(o.nomeCliente),
+    createdAt: Number(o.createdAt),
+    totaleCentesimi: Number(o.totaleCentesimi),
+    createdByUserId: Number(o.createdByUserId),
+    receiptSnapshot: String(o.receiptSnapshot),
+  }
+}
+
+function pizzaLineToJson(pl: OrderLinePizzaEntity): Record<string, unknown> {
+  return {
+    pizzaId: pl.pizzaId,
+    nomeSnapshot: pl.nomeSnapshot,
+    prezzoBaseSnapshot: pl.prezzoBaseSnapshot,
+    noteLibere: pl.noteLibere,
+    lineIndex: pl.lineIndex,
+  }
+}
+
+function pizzaLineFromJson(o: Record<string, unknown>, orderId: number): Omit<OrderLinePizzaEntity, 'id'> {
+  return {
+    orderId,
+    pizzaId: o.pizzaId == null ? null : Number(o.pizzaId),
+    nomeSnapshot: String(o.nomeSnapshot),
+    prezzoBaseSnapshot: Number(o.prezzoBaseSnapshot),
+    noteLibere: o.noteLibere == null ? null : String(o.noteLibere),
+    lineIndex: Number(o.lineIndex ?? 0),
+  }
+}
+
+function modLineToJson(m: OrderLinePizzaModEntity): Record<string, unknown> {
+  return {
+    modificatoreId: m.modificatoreId,
+    nome: m.nome,
+    tipo: m.tipo,
+    prezzoCentesimi: m.prezzoCentesimi,
+  }
+}
+
+function modLineFromJson(o: Record<string, unknown>, pizzaLineId: number): Omit<OrderLinePizzaModEntity, 'id'> {
+  return {
+    pizzaLineId,
+    modificatoreId: o.modificatoreId == null ? null : Number(o.modificatoreId),
+    nome: String(o.nome),
+    tipo: String(o.tipo),
+    prezzoCentesimi: Number(o.prezzoCentesimi ?? 0),
+  }
+}
+
+function bibLineToJson(b: OrderLineBibitaEntity): Record<string, unknown> {
+  return {
+    bibitaId: b.bibitaId,
+    nomeSnapshot: b.nomeSnapshot,
+    prezzoUnitarioSnapshot: b.prezzoUnitarioSnapshot,
+    quantita: b.quantita,
+  }
+}
+
+function bibLineFromJson(o: Record<string, unknown>, orderId: number): Omit<OrderLineBibitaEntity, 'id'> {
+  return {
+    orderId,
+    bibitaId: o.bibitaId == null ? null : Number(o.bibitaId),
+    nomeSnapshot: String(o.nomeSnapshot),
+    prezzoUnitarioSnapshot: Number(o.prezzoUnitarioSnapshot),
+    quantita: Number(o.quantita ?? 1),
+  }
+}
+
+export async function exportJson(): Promise<string> {
+  const appRow = (await db.appState.get(1)) ?? defaultAppState()
+  const root: Record<string, unknown> = {
+    schemaVersion: SCHEMA_VERSION,
+    exportedAt: Date.now(),
+    appState: appStateToJson(appRow),
+    users: (await db.users.toArray()).map(userToJson),
+    pizze: (await db.pizze.toArray()).map(pizzaToJson),
+    modificatori: (await db.modificatori.toArray()).map(modToJson),
+    bibite: (await db.bibite.toArray()).map(bibToJson),
+  }
+
+  const orderDetails: Record<string, unknown>[] = []
+  const orders = await db.orders.toArray()
+  for (const order of orders) {
+    const oid = order.id!
+    const detail: Record<string, unknown> = {
+      order: orderToJson(order),
+      pizzaLines: (await db.orderLinePizza.where('orderId').equals(oid).toArray()).map(pizzaLineToJson),
+      pizzaMods: [] as Record<string, unknown>[],
+      bibitaLines: (await db.orderLineBibita.where('orderId').equals(oid).toArray()).map(bibLineToJson),
+    }
+    const pizzaLines = await db.orderLinePizza.where('orderId').equals(oid).toArray()
+    const modsArray = detail.pizzaMods as Record<string, unknown>[]
+    for (const pl of pizzaLines) {
+      const mods = await db.orderLinePizzaMod.where('pizzaLineId').equals(pl.id!).toArray()
+      for (const mod of mods) {
+        const row = { ...modLineToJson(mod), pizzaLineIndex: pl.lineIndex }
+        modsArray.push(row)
+      }
+    }
+    orderDetails.push(detail)
+  }
+  root.orderDetails = orderDetails
+  return JSON.stringify(root, null, 2)
+}
+
+export async function importJson(json: string): Promise<void> {
+  const root = JSON.parse(json) as Record<string, unknown>
+  if (Number(root.schemaVersion ?? 0) !== SCHEMA_VERSION) {
+    throw new Error('Versione backup non supportata')
+  }
+
+  await db.transaction(
+    'rw',
+    [
+      db.orders,
+      db.orderLinePizza,
+      db.orderLinePizzaMod,
+      db.orderLineBibita,
+      db.users,
+      db.pizze,
+      db.modificatori,
+      db.bibite,
+      db.appState,
+    ],
+    async () => {
+      await db.orderLinePizzaMod.clear()
+      await db.orderLinePizza.clear()
+      await db.orderLineBibita.clear()
+      await db.orders.clear()
+      await db.users.clear()
+      await db.pizze.clear()
+      await db.modificatori.clear()
+      await db.bibite.clear()
+
+      const appJson = root.appState as Record<string, unknown>
+      const current = (await db.appState.get(1)) ?? defaultAppState()
+      await db.appState.put({ ...appStateFromJson(appJson, current), id: 1 })
+
+      const users = root.users as Record<string, unknown>[]
+      for (const u of users) {
+        await db.users.add(userFromJson(u))
+      }
+      const pizze = root.pizze as Record<string, unknown>[]
+      for (const p of pizze) {
+        await db.pizze.add(pizzaFromJson(p))
+      }
+      const mods = root.modificatori as Record<string, unknown>[]
+      for (const m of mods) {
+        await db.modificatori.add(modFromJson(m))
+      }
+      const bibite = root.bibite as Record<string, unknown>[]
+      for (const b of bibite) {
+        await db.bibite.add(bibFromJson(b))
+      }
+
+      if (Array.isArray(root.orderDetails)) {
+        const details = root.orderDetails as Record<string, unknown>[]
+        for (const d of details) {
+          const order = orderFromJson(d.order as Record<string, unknown>)
+          const orderId = (await db.orders.add(order as OrderEntity)) as number
+          const pizzaLinesJson = d.pizzaLines as Record<string, unknown>[]
+          const lineIdByIndex = new Map<number, number>()
+          for (const plJson of pizzaLinesJson) {
+            const pl = pizzaLineFromJson(plJson, orderId)
+            const plId = (await db.orderLinePizza.add(pl as OrderLinePizzaEntity)) as number
+            lineIdByIndex.set(pl.lineIndex, plId)
+          }
+          const modsJson = (d.pizzaMods ?? []) as Record<string, unknown>[]
+          for (const m of modsJson) {
+            const lineIndex = Number(m.pizzaLineIndex ?? 0)
+            const pizzaLineId = lineIdByIndex.get(lineIndex)
+            if (pizzaLineId == null) continue
+            await db.orderLinePizzaMod.add(modLineFromJson(m, pizzaLineId) as OrderLinePizzaModEntity)
+          }
+          const bibitaJson = (d.bibitaLines ?? []) as Record<string, unknown>[]
+          for (const b of bibitaJson) {
+            await db.orderLineBibita.add(bibLineFromJson(b, orderId) as OrderLineBibitaEntity)
+          }
+        }
+      }
+    },
+  )
+}
