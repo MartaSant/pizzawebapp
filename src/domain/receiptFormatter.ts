@@ -8,6 +8,7 @@ const WIDTH = 32
 
 export function formatReceipt(data: ReceiptData): string {
   const sb: string[] = []
+  if (data.nomeOperatore?.trim()) sb.push(`Operatore: ${data.nomeOperatore.trim()}`.slice(0, WIDTH))
   if (data.nomeCliente?.trim()) sb.push(`Cliente: ${data.nomeCliente.trim()}`)
   const whenStr = format(data.createdAtMillis, 'dd/MM/yyyy HH:mm', { locale: it })
   const orderLabel = `Ordine #${OrderNumberService.formatDisplay(data.numeroDisplay)}`

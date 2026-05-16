@@ -18,6 +18,7 @@ export interface ReceiptBibitaLine {
 }
 
 export interface ReceiptData {
+  nomeOperatore: string | null | undefined
   nomeCliente: string | null | undefined
   createdAtMillis: number
   numeroDisplay: number

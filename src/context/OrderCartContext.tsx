@@ -256,6 +256,7 @@ export function OrderCartProvider({ children }: { children: ReactNode }) {
         state.nextOrderNumber,
         pizzaLines,
         bibitaLines,
+        user?.username,
       )
       setMessage(null)
       return snap
@@ -263,7 +264,7 @@ export function OrderCartProvider({ children }: { children: ReactNode }) {
       setMessage(e instanceof Error ? e.message : 'Errore')
       return null
     }
-  }, [clientName, pizzaLines, bibitaLines])
+  }, [clientName, pizzaLines, bibitaLines, user?.username])
 
   const confirmOrder = useCallback(
     async (onSaved?: (snap: string) => void) => {
@@ -276,6 +277,7 @@ export function OrderCartProvider({ children }: { children: ReactNode }) {
           user.id,
           pizzaLines,
           bibitaLines,
+          user.username,
         )
         await onOrderConfirmed(state.confirmFeedback)
         setPostConfirmReceiptOffer(order.receiptSnapshot)

@@ -320,6 +320,7 @@ function buildReceipt(
   numero: number,
   pizze: CartPizzaLine[],
   bibite: CartBibitaLine[],
+  nomeOperatore?: string | null,
 ): ReceiptData {
   const pizzaLines: ReceiptPizzaLine[] = pizze.map((p) => ({
     nome: p.nome,
@@ -337,6 +338,7 @@ function buildReceipt(
   }))
   const totale = pizze.reduce((s, p) => s + lineTotalPizza(p), 0) + bibite.reduce((s, b) => s + lineTotalBibita(b), 0)
   return {
+    nomeOperatore: nomeOperatore?.trim() || undefined,
     nomeCliente,
     createdAtMillis: Date.now(),
     numeroDisplay: numero,
@@ -351,9 +353,10 @@ export function previewOrderSnapshot(
   numeroDisplay: number,
   pizze: CartPizzaLine[],
   bibite: CartBibitaLine[],
+  nomeOperatore?: string | null,
 ): string {
   if (pizze.length === 0) throw new Error('Serve almeno una pizza')
-  const receipt = buildReceipt(nomeCliente, numeroDisplay, pizze, bibite)
+  const receipt = buildReceipt(nomeCliente, numeroDisplay, pizze, bibite, nomeOperatore)
   return formatReceipt(receipt)
 }
 
@@ -362,6 +365,7 @@ export async function saveOrder(
   createdByUserId: number,
   pizze: CartPizzaLine[],
   bibite: CartBibitaLine[],
+  nomeOperatore?: string | null,
 ): Promise<OrderEntity> {
   if (pizze.length === 0) throw new Error('Serve almeno una pizza')
   return db.transaction(
@@ -371,7 +375,11 @@ export async function saveOrder(
       let state = await db.appState.get(1)
       if (!state) throw new Error('Configurazione mancante: completa il wizard')
       const numero = state.nextOrderNumber
-      const receipt = buildReceipt(nomeCliente, numero, pizze, bibite)
+      const op =
+        nomeOperatore?.trim() ||
+        (await db.users.get(createdByUserId))?.username ||
+        undefined
+      const receipt = buildReceipt(nomeCliente, numero, pizze, bibite, op)
       const snapshot = formatReceipt(receipt)
       const totale = receipt.totaleCentesimi
       const now = Date.now()
