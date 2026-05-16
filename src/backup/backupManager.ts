@@ -1,4 +1,5 @@
 import { normalizeThemeMode } from '../domain/appThemeMode'
+import { normalizeUsername } from '../domain/usernameNormalizer'
 import { db } from '../db/database'
 import type { AppStateEntity } from '../db/types'
 import { defaultAppState } from '../db/types'
@@ -36,6 +37,7 @@ function appStateFromJson(j: Record<string, unknown> | null | undefined, current
 function userToJson(u: UserEntity): Record<string, unknown> {
   return {
     username: u.username,
+    usernameNorm: u.usernameNorm,
     pinHash: u.pinHash,
     role: u.role,
     attivo: u.attivo,
@@ -43,12 +45,34 @@ function userToJson(u: UserEntity): Record<string, unknown> {
 }
 
 function userFromJson(o: Record<string, unknown>): Omit<UserEntity, 'id'> {
+  const username = String(o.username)
+  const rawNorm = o.usernameNorm != null ? String(o.usernameNorm) : ''
+  const fromField = rawNorm.trim() ? normalizeUsername(rawNorm) : ''
+  const usernameNorm = fromField || normalizeUsername(username) || 'user'
   return {
-    username: String(o.username),
+    username,
+    usernameNorm,
     pinHash: String(o.pinHash),
     role: String(o.role),
     attivo: o.attivo !== false,
   }
+}
+
+/** Backup può contenere duplicati case-variant; garantisce `usernameNorm` univoci prima dell'insert. */
+function dedupeImportedUsers(users: Omit<UserEntity, 'id'>[]): Omit<UserEntity, 'id'>[] {
+  const used = new Set<string>()
+  return users.map((u) => {
+    let base = u.usernameNorm.trim() ? normalizeUsername(u.usernameNorm) : normalizeUsername(u.username)
+    if (!base) base = 'user'
+    let n = base
+    let i = 1
+    while (used.has(n)) {
+      i += 1
+      n = `${base}_${i}`
+    }
+    used.add(n)
+    return { ...u, usernameNorm: n }
+  })
 }
 
 function pizzaToJson(p: PizzaEntity): Record<string, unknown> {
@@ -313,9 +337,9 @@ export async function importJson(json: string): Promise<void> {
       const current = (await db.appState.get(1)) ?? defaultAppState()
       await db.appState.put({ ...appStateFromJson(appJson, current), id: 1 })
 
-      const users = root.users as Record<string, unknown>[]
-      for (const u of users) {
-        await db.users.add(userFromJson(u))
+      const users = (root.users as Record<string, unknown>[]).map(userFromJson)
+      for (const u of dedupeImportedUsers(users)) {
+        await db.users.add(u as UserEntity)
       }
       const pizze = root.pizze as Record<string, unknown>[]
       for (const p of pizze) {

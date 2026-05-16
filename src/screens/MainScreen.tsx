@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toggleLightDarkFromResolved } from '../data/repositories'
 import { useSession } from '../auth/SessionContext'
 import { OrderTab } from './OrderTab'
 import { HistoryTab } from './HistoryTab'
 import { AdminTab } from './AdminTab'
+import { takeMainTabAfterReceipt } from '../util/receiptNavStaging'
 
 const LABELS = ['Ordine', 'Storico', 'Admin'] as const
 
@@ -12,6 +13,11 @@ export function MainScreen() {
   const [tab, setTab] = useState(0)
   const { logout, user } = useSession()
   const nav = useNavigate()
+
+  useLayoutEffect(() => {
+    const m = takeMainTabAfterReceipt()
+    if (m != null) setTab(Math.max(0, Math.min(m, 2)))
+  }, [])
 
   async function onThemeIcon() {
     const dark = document.documentElement.dataset.theme === 'dark'

@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useOrderCart } from '../context/OrderCartContext'
-import { clearReceiptNavigationStaging, readReceiptNavigationStaging } from '../util/receiptNavStaging'
+import { clearReceiptNavigationStaging, readReceiptNavigationStaging, stashMainTabForReturnFromReceipt } from '../util/receiptNavStaging'
 
 function printSnapshot(snapshot: string) {
   const w = window.open('', '_blank', 'noopener,noreferrer')
@@ -27,7 +27,7 @@ export function ReceiptPage() {
   const nav = useNavigate()
   const loc = useLocation()
   const cart = useOrderCart()
-  const [payload, setPayload] = useState<{ snapshot: string; preview: boolean } | null>(null)
+  const [payload, setPayload] = useState<{ snapshot: string; preview: boolean; returnMainTab?: number } | null>(null)
   const claimed = useRef(false)
 
   useLayoutEffect(() => {
@@ -43,11 +43,19 @@ export function ReceiptPage() {
       setPayload({ snapshot: state.snapshot, preview: state.preview ?? false })
       return
     }
+    stashMainTabForReturnFromReceipt(0)
     nav('/main', { replace: true })
   }, [nav, loc.state])
 
   function leaveReceipt() {
     clearReceiptNavigationStaging()
+  }
+
+  function goBackToMain() {
+    const tab = payload?.returnMainTab ?? 0
+    leaveReceipt()
+    stashMainTabForReturnFromReceipt(tab)
+    nav('/main', { replace: true })
   }
 
   if (!payload) return null
@@ -87,8 +95,7 @@ export function ReceiptPage() {
               className="primary"
               onClick={() =>
                 void cart.confirmOrder(() => {
-                  leaveReceipt()
-                  nav('/main', { replace: true })
+                  goBackToMain()
                 })
               }
             >
@@ -98,8 +105,7 @@ export function ReceiptPage() {
               type="button"
               className="secondary"
               onClick={() => {
-                leaveReceipt()
-                nav(-1)
+                goBackToMain()
               }}
             >
               Indietro
@@ -116,8 +122,7 @@ export function ReceiptPage() {
           type="button"
           className="ghost"
           onClick={() => {
-            leaveReceipt()
-            nav('/main')
+            goBackToMain()
           }}
         >
           Chiudi

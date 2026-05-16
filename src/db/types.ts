@@ -1,6 +1,8 @@
 export interface UserEntity {
   id?: number
   username: string
+  /** lower(trim(username)), univoco (Dexie &usernameNorm) */
+  usernameNorm: string
   pinHash: string
   role: string
   attivo: boolean

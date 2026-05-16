@@ -8,6 +8,7 @@ import { useSession } from '../auth/SessionContext'
 import {
   clearMenu,
   createUser,
+  deactivateUser,
   deleteBibitaById,
   deleteModificatoreById,
   deletePizzaById,
@@ -26,7 +27,7 @@ import type { BibitaEntity, ModificatoreEntity, PizzaEntity } from '../db/types'
 const TABS = ['Pizze', 'Modificatori', 'Bibite', 'Backup', 'Utenti', 'Impostazioni'] as const
 
 export function AdminTab() {
-  const { isAdmin } = useSession()
+  const { isAdmin, user } = useSession()
   const [section, setSection] = useState(0)
   const [msg, setMsg] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -169,6 +170,16 @@ export function AdminTab() {
               setMsg(e instanceof Error ? e.message : 'Errore')
             }
           }}
+          onDeactivate={async (targetId) => {
+            if (user?.id == null) return
+            try {
+              await deactivateUser(user.id, targetId)
+              setMsg('Utente disattivato')
+            } catch (e) {
+              setMsg(e instanceof Error ? e.message : 'Errore')
+            }
+          }}
+          actingUserId={user?.id}
           users={users ?? []}
         />
       )}
@@ -337,9 +348,13 @@ function EditMenuForm({
 function UsersSection({
   users,
   onCreate,
+  onDeactivate,
+  actingUserId,
 }: {
   users: { id?: number; username: string; role: string; attivo: boolean }[]
   onCreate: (u: string, pin: string, role: string) => void
+  onDeactivate: (targetId: number) => void
+  actingUserId?: number
 }) {
   const [username, setUsername] = useState('')
   const [pin, setPin] = useState('')
@@ -359,8 +374,18 @@ function UsersSection({
       <h4>Elenco</h4>
       <ul>
         {users.map((u) => (
-          <li key={u.id}>
-            {u.username} — {u.role} {u.attivo ? '' : '(disattivo)'}
+          <li key={u.id} className="row-gap wrap">
+            <span>
+              {u.username} — {u.role} {u.attivo ? '' : '(disattivo)'}
+            </span>
+            {u.attivo && u.id != null && u.id !== actingUserId ? (
+              <button type="button" className="ghost danger" onClick={() => onDeactivate(u.id!)}>
+                Disattiva
+              </button>
+            ) : null}
+            {u.attivo && u.id != null && u.id === actingUserId ? (
+              <span className="hint">(account corrente)</span>
+            ) : null}
           </li>
         ))}
       </ul>

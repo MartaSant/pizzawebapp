@@ -62,7 +62,7 @@ export function HistoryTab() {
                 type="button"
                 className="linkish left-align"
                 onClick={() => {
-                  stageReceiptNavigation(o.receiptSnapshot, false)
+                  stageReceiptNavigation(o.receiptSnapshot, false, 1)
                   nav('/main/receipt')
                 }}
               >

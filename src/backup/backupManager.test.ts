@@ -49,6 +49,7 @@ describe('importMenuCatalog', () => {
 
     await db.users.add({
       username: 'tester',
+      usernameNorm: 'tester',
       pinHash: 'x',
       role: 'ADMIN',
       attivo: true,

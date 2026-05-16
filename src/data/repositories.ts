@@ -3,6 +3,7 @@ import { formatReceipt } from '../domain/receiptFormatter'
 import type { ReceiptBibitaLine, ReceiptData, ReceiptModLine, ReceiptPizzaLine } from '../domain/receiptModels'
 import { OrderNumberService } from '../domain/orderNumber'
 import { pizzaNomePerOrdine } from '../domain/pizzaNome'
+import { normalizeUsername } from '../domain/usernameNormalizer'
 import { PinHasher } from '../auth/pinHasher'
 import { UserRole } from '../auth/userRole'
 import { db } from '../db/database'
@@ -55,8 +56,10 @@ export async function completeWizard(
       printerMac: null,
       themeMode: AppThemeMode.SYSTEM,
     })
+    const adminTrim = adminUsername.trim()
     await db.users.add({
-      username: adminUsername.trim(),
+      username: adminTrim,
+      usernameNorm: normalizeUsername(adminTrim),
       pinHash: PinHasher.hash(adminPin),
       role: UserRole.ADMIN,
       attivo: true,
@@ -102,8 +105,14 @@ export async function getUserById(id: number): Promise<UserEntity | undefined> {
 
 export async function createUser(username: string, pin: string, role: string): Promise<void> {
   if (username.length > MENU_NAME_MAX) throw new Error('Username troppo lungo')
+  const trimmed = username.trim()
+  const norm = normalizeUsername(trimmed)
+  if (!norm) throw new Error('Username obbligatorio')
+  const clash = await db.users.where('usernameNorm').equals(norm).first()
+  if (clash) throw new Error('Username già in uso')
   await db.users.add({
-    username: username.trim(),
+    username: trimmed,
+    usernameNorm: norm,
     pinHash: PinHasher.hash(pin),
     role,
     attivo: true,
@@ -119,8 +128,28 @@ export async function updateUser(
 ): Promise<void> {
   const existing = await db.users.get(id)
   if (!existing) return
+  const trimmed = username.trim()
+  const norm = normalizeUsername(trimmed)
+  if (!norm) throw new Error('Username obbligatorio')
+  if (norm !== existing.usernameNorm) {
+    const clash = await db.users.where('usernameNorm').equals(norm).first()
+    if (clash && clash.id !== id) throw new Error('Username già in uso')
+  }
   const hash = pin ? PinHasher.hash(pin) : existing.pinHash
-  await db.users.update(id, { username: username.trim(), pinHash: hash, role, attivo })
+  await db.users.update(id, { username: trimmed, usernameNorm: norm, pinHash: hash, role, attivo })
+}
+
+/** Disattiva utente (soft). Solo da pannello admin; `actingUserId` evita auto-disattivazione. */
+export async function deactivateUser(actingUserId: number, targetUserId: number): Promise<void> {
+  if (actingUserId === targetUserId) throw new Error('Non puoi disattivare l\'account con cui sei connesso')
+  const target = await db.users.get(targetUserId)
+  if (!target) throw new Error('Utente non trovato')
+  if (!target.attivo) return
+  if (target.role === UserRole.ADMIN) {
+    const activeAdmins = await db.users.filter((u) => u.attivo && u.role === UserRole.ADMIN).toArray()
+    if (activeAdmins.length <= 1) throw new Error('Non si può disattivare l\'ultimo amministratore attivo')
+  }
+  await db.users.update(targetUserId, { attivo: false })
 }
 
 export async function verifyPin(userId: number, pin: string): Promise<boolean> {

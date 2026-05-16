@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
+import { normalizeUsername } from '../domain/usernameNormalizer'
 import { getPizzappDexieName } from './dexieDbName'
 import type {
   AppStateEntity,
@@ -36,6 +37,34 @@ export class PizzappDB extends Dexie {
       orderLinePizzaMod: '++id, pizzaLineId',
       orderLineBibita: '++id, orderId',
     })
+    this.version(2)
+      .stores({
+        users: '++id, &usernameNorm, username, attivo, role',
+        pizze: '++id, nome, attiva, ordineVisualizzazione',
+        modificatori: '++id, nome, attiva, ordineVisualizzazione',
+        bibite: '++id, nome, attiva, ordineVisualizzazione',
+        appState: 'id',
+        orders: '++id, createdAt, numeroDisplay',
+        orderLinePizza: '++id, orderId, lineIndex',
+        orderLinePizzaMod: '++id, pizzaLineId',
+        orderLineBibita: '++id, orderId',
+      })
+      .upgrade(async (tx) => {
+        const rows = await tx.table('users').toArray()
+        const used = new Set<string>()
+        for (const u of rows as { id?: number; username: string; usernameNorm?: string }[]) {
+          let base = normalizeUsername(u.username)
+          if (!base) base = 'user'
+          let norm = base
+          let n = 1
+          while (used.has(norm)) {
+            n += 1
+            norm = `${base}_${n}`
+          }
+          used.add(norm)
+          await tx.table('users').update(u.id!, { usernameNorm: norm })
+        }
+      })
   }
 }
 

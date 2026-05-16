@@ -23,7 +23,7 @@ export function OrderTab() {
     if (!offer) return
     const t = window.setTimeout(() => {
       if (window.confirm('Stampare o inviare lo scontrino?')) {
-        stageReceiptNavigation(offer, false)
+        stageReceiptNavigation(offer, false, 0)
         nav('/main/receipt')
       }
       cart.consumePostConfirmReceiptOffer()
@@ -34,7 +34,7 @@ export function OrderTab() {
   async function onPreview() {
     const snap = await cart.previewOrder()
     if (snap) {
-      stageReceiptNavigation(snap, true)
+      stageReceiptNavigation(snap, true, 0)
       nav('/main/receipt')
     }
   }
