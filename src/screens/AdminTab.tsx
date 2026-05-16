@@ -23,8 +23,7 @@ import { exportJson, importJson, importMenuCatalog } from '../backup/backupManag
 import { db } from '../db/database'
 import type { BibitaEntity, ModificatoreEntity, PizzaEntity } from '../db/types'
 
-/** Backup subito dopo Pizze: su schermi stretti la riga tab scrolla e «Backup» altrimenti finisce fuori vista. */
-const TABS = ['Pizze', 'Backup', 'Modificatori', 'Bibite', 'Utenti', 'Impostazioni'] as const
+const TABS = ['Pizze', 'Modificatori', 'Bibite', 'Backup', 'Utenti', 'Impostazioni'] as const
 
 export function AdminTab() {
   const { isAdmin } = useSession()
@@ -63,6 +62,24 @@ export function AdminTab() {
         />
       )}
       {section === 1 && (
+        <MenuSection
+          title="Modificatore"
+          items={mods ?? []}
+          onSave={(id, nome, prezzo, attiva, ordine) =>
+            void upsertModificatore(id, nome, prezzo, attiva, ordine).then(() => setMsg('Salvato')).catch((e) => setMsg(String(e.message)))
+          }
+          onDelete={(id) => void deleteModificatoreById(id).then(() => setMsg('Eliminato')).catch((e) => setMsg(String(e.message)))}
+        />
+      )}
+      {section === 2 && (
+        <MenuSection
+          title="Bibita"
+          items={bibite ?? []}
+          onSave={(id, nome, prezzo, attiva, ordine) => void upsertBibita(id, nome, prezzo, attiva, ordine).then(() => setMsg('Salvato')).catch((e) => setMsg(String(e.message)))}
+          onDelete={(id) => void deleteBibitaById(id).then(() => setMsg('Eliminato')).catch((e) => setMsg(String(e.message)))}
+        />
+      )}
+      {section === 3 && (
         <div className="stack">
           <h3 className="section-title">Solo listino (consigliato per JSON catalogo)</h3>
           <input
@@ -139,24 +156,6 @@ export function AdminTab() {
             riferimenti agli ID, ma nome e prezzi negli scontrini restano quelli salvati all&apos;ordine.
           </p>
         </div>
-      )}
-      {section === 2 && (
-        <MenuSection
-          title="Modificatore"
-          items={mods ?? []}
-          onSave={(id, nome, prezzo, attiva, ordine) =>
-            void upsertModificatore(id, nome, prezzo, attiva, ordine).then(() => setMsg('Salvato')).catch((e) => setMsg(String(e.message)))
-          }
-          onDelete={(id) => void deleteModificatoreById(id).then(() => setMsg('Eliminato')).catch((e) => setMsg(String(e.message)))}
-        />
-      )}
-      {section === 3 && (
-        <MenuSection
-          title="Bibita"
-          items={bibite ?? []}
-          onSave={(id, nome, prezzo, attiva, ordine) => void upsertBibita(id, nome, prezzo, attiva, ordine).then(() => setMsg('Salvato')).catch((e) => setMsg(String(e.message)))}
-          onDelete={(id) => void deleteBibitaById(id).then(() => setMsg('Eliminato')).catch((e) => setMsg(String(e.message)))}
-        />
       )}
       {section === 4 && (
         <UsersSection

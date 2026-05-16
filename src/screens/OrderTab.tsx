@@ -5,6 +5,7 @@ import { MoneyFormatter } from '../domain/money'
 import { OrderNumberService } from '../domain/orderNumber'
 import { useOrderCart } from '../context/OrderCartContext'
 import { db } from '../db/database'
+import { stageReceiptNavigation } from '../util/receiptNavStaging'
 
 export function OrderTab() {
   const nav = useNavigate()
@@ -22,7 +23,8 @@ export function OrderTab() {
     if (!offer) return
     const t = window.setTimeout(() => {
       if (window.confirm('Stampare o inviare lo scontrino?')) {
-        nav('/main/receipt', { state: { snapshot: offer, preview: false } })
+        stageReceiptNavigation(offer, false)
+        nav('/main/receipt')
       }
       cart.consumePostConfirmReceiptOffer()
     }, 400)
@@ -31,7 +33,10 @@ export function OrderTab() {
 
   async function onPreview() {
     const snap = await cart.previewOrder()
-    if (snap) nav('/main/receipt', { state: { snapshot: snap, preview: true } })
+    if (snap) {
+      stageReceiptNavigation(snap, true)
+      nav('/main/receipt')
+    }
   }
 
   async function onConfirm() {

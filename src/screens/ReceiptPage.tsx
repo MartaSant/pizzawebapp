@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useOrderCart } from '../context/OrderCartContext'
+import { clearReceiptNavigationStaging, readReceiptNavigationStaging } from '../util/receiptNavStaging'
 
 function printSnapshot(snapshot: string) {
   const w = window.open('', '_blank', 'noopener,noreferrer')
@@ -14,7 +15,7 @@ function printSnapshot(snapshot: string) {
   w.document.close()
 }
 
-function escapeHtml(s: string): string {
+function escapeHtml(s: string) {
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -26,15 +27,33 @@ export function ReceiptPage() {
   const nav = useNavigate()
   const loc = useLocation()
   const cart = useOrderCart()
-  const state = loc.state as { snapshot?: string; preview?: boolean } | null
-  const snapshot = state?.snapshot ?? ''
-  const isPreview = state?.preview ?? false
+  const [payload, setPayload] = useState<{ snapshot: string; preview: boolean } | null>(null)
+  const claimed = useRef(false)
 
-  useEffect(() => {
-    if (!snapshot) nav('/main', { replace: true })
-  }, [snapshot, nav])
+  useLayoutEffect(() => {
+    if (claimed.current) return
+    claimed.current = true
+    const staged = readReceiptNavigationStaging()
+    if (staged) {
+      setPayload(staged)
+      return
+    }
+    const state = loc.state as { snapshot?: string; preview?: boolean } | null
+    if (state?.snapshot != null && state.snapshot !== '') {
+      setPayload({ snapshot: state.snapshot, preview: state.preview ?? false })
+      return
+    }
+    nav('/main', { replace: true })
+  }, [nav, loc.state])
 
-  if (!snapshot) return null
+  function leaveReceipt() {
+    clearReceiptNavigationStaging()
+  }
+
+  if (!payload) return null
+
+  const snapshot = payload.snapshot
+  const isPreview = payload.preview
 
   async function share() {
     try {
@@ -63,10 +82,26 @@ export function ReceiptPage() {
       <div className="row-gap wrap">
         {isPreview && (
           <>
-            <button type="button" className="primary" onClick={() => void cart.confirmOrder(() => nav('/main', { replace: true }))}>
+            <button
+              type="button"
+              className="primary"
+              onClick={() =>
+                void cart.confirmOrder(() => {
+                  leaveReceipt()
+                  nav('/main', { replace: true })
+                })
+              }
+            >
               Conferma ordine
             </button>
-            <button type="button" className="secondary" onClick={() => nav(-1)}>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                leaveReceipt()
+                nav(-1)
+              }}
+            >
               Indietro
             </button>
           </>
@@ -77,7 +112,14 @@ export function ReceiptPage() {
         <button type="button" className="secondary" onClick={() => printSnapshot(snapshot)}>
           Stampa
         </button>
-        <button type="button" className="ghost" onClick={() => nav('/main')}>
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => {
+            leaveReceipt()
+            nav('/main')
+          }}
+        >
           Chiudi
         </button>
       </div>

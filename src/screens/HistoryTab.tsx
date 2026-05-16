@@ -9,6 +9,7 @@ import { OrderNumberService } from '../domain/orderNumber'
 import { HISTORY_HOURS_MS, clearAllOrders } from '../data/repositories'
 import { useOrderCart } from '../context/OrderCartContext'
 import { db } from '../db/database'
+import { stageReceiptNavigation } from '../util/receiptNavStaging'
 
 export function HistoryTab() {
   const nav = useNavigate()
@@ -60,7 +61,10 @@ export function HistoryTab() {
               <button
                 type="button"
                 className="linkish left-align"
-                onClick={() => nav('/main/receipt', { state: { snapshot: o.receiptSnapshot, preview: false } })}
+                onClick={() => {
+                  stageReceiptNavigation(o.receiptSnapshot, false)
+                  nav('/main/receipt')
+                }}
               >
                 <strong>
                   #{OrderNumberService.formatDisplay(o.numeroDisplay)} — {MoneyFormatter.format(o.totaleCentesimi)}
