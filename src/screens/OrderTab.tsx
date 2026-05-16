@@ -5,6 +5,7 @@ import { MoneyFormatter } from '../domain/money'
 import { OrderNumberService } from '../domain/orderNumber'
 import { useOrderCart } from '../context/OrderCartContext'
 import { db } from '../db/database'
+import { isNoteOnlyCartLine } from '../domain/orderNoteLine'
 import { stageReceiptNavigation } from '../util/receiptNavStaging'
 
 export function OrderTab() {
@@ -13,6 +14,7 @@ export function OrderTab() {
   const nextState = useLiveQuery(() => db.appState.get(1))
   const [modPickerFor, setModPickerFor] = useState<number | null>(null)
   const [elevatedField, setElevatedField] = useState<string | null>(null)
+  const [noteDraft, setNoteDraft] = useState('')
 
   useEffect(() => {
     void cart.refreshMods()
@@ -71,6 +73,38 @@ export function OrderTab() {
         />
       )}
 
+      <div className="card note-order-card">
+        <p className="hint">Nota per cucina (anche senza pizza o bibita)</p>
+        <textarea
+          className="field"
+          rows={2}
+          placeholder="Es. senza cipolla, ritardo 15 min…"
+          value={noteDraft}
+          onChange={(e) => setNoteDraft(e.target.value)}
+        />
+        <button
+          type="button"
+          className="small-btn secondary"
+          onClick={() => {
+            if (cart.addNoteLine(noteDraft)) setNoteDraft('')
+          }}
+        >
+          Aggiungi nota
+        </button>
+      </div>
+
+      {cart.pizzaLines.filter(isNoteOnlyCartLine).map((line) => (
+        <div key={line.localId} className="card line-card note-line-card">
+          <div className="row-between">
+            <strong>Nota</strong>
+            <button type="button" className="icon-btn danger" onClick={() => cart.removePizza(line.localId)}>
+              ×
+            </button>
+          </div>
+          <p>{line.nota}</p>
+        </div>
+      ))}
+
       {elevatedField !== 'pizzaQ' && (
         <input
           className="field"
@@ -102,7 +136,7 @@ export function OrderTab() {
         ))}
       </ul>
 
-      {cart.pizzaLines.map((line) => (
+      {cart.pizzaLines.filter((line) => !isNoteOnlyCartLine(line)).map((line) => (
         <div key={line.localId} className="card line-card">
           <div className="row-between">
             <strong>
@@ -234,10 +268,10 @@ export function OrderTab() {
       {cart.message && <p className="error">{cart.message}</p>}
 
       <div className="row-gap wrap">
-        <button type="button" className="secondary" disabled={cart.pizzaLines.length === 0} onClick={() => void onPreview()}>
+        <button type="button" className="secondary" disabled={!cart.isCartNonEmpty()} onClick={() => void onPreview()}>
           Anteprima ordine
         </button>
-        <button type="button" className="primary" disabled={cart.pizzaLines.length === 0} onClick={() => void onConfirm()}>
+        <button type="button" className="primary" disabled={!cart.isCartNonEmpty()} onClick={() => void onConfirm()}>
           Conferma ordine
         </button>
       </div>

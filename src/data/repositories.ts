@@ -2,6 +2,11 @@ import { AppThemeMode, normalizeThemeMode } from '../domain/appThemeMode'
 import { formatReceipt } from '../domain/receiptFormatter'
 import type { ReceiptBibitaLine, ReceiptData, ReceiptModLine, ReceiptPizzaLine } from '../domain/receiptModels'
 import { OrderNumberService } from '../domain/orderNumber'
+import {
+  ORDER_NOTE_LINE_NOME,
+  cartHasOrderContent,
+  createNoteOnlyCartLine,
+} from '../domain/orderNoteLine'
 import { pizzaNomePerOrdine } from '../domain/pizzaNome'
 import { normalizeUsername } from '../domain/usernameNormalizer'
 import { PinHasher } from '../auth/pinHasher'
@@ -384,7 +389,7 @@ export function previewOrderSnapshot(
   bibite: CartBibitaLine[],
   nomeOperatore?: string | null,
 ): string {
-  if (pizze.length === 0) throw new Error('Serve almeno una pizza')
+  if (!cartHasOrderContent(pizze, bibite)) throw new Error("Aggiungi almeno una voce o una nota all'ordine")
   const receipt = buildReceipt(nomeCliente, numeroDisplay, pizze, bibite, nomeOperatore)
   return formatReceipt(receipt)
 }
@@ -396,7 +401,7 @@ export async function saveOrder(
   bibite: CartBibitaLine[],
   nomeOperatore?: string | null,
 ): Promise<OrderEntity> {
-  if (pizze.length === 0) throw new Error('Serve almeno una pizza')
+  if (!cartHasOrderContent(pizze, bibite)) throw new Error("Aggiungi almeno una voce o una nota all'ordine")
   return db.transaction(
     'rw',
     [db.orders, db.orderLinePizza, db.orderLinePizzaMod, db.orderLineBibita, db.appState],
@@ -505,7 +510,10 @@ export async function loadOrderIntoCart(orderId: number): Promise<OrderCartLoad>
   const pizzaRows = (await db.orderLinePizza.where('orderId').equals(orderId).toArray()).sort(
     (a, b) => a.lineIndex - b.lineIndex,
   )
-  if (pizzaRows.length === 0) throw new Error('Questo ordine non ha pizze; carica un ordine con almeno una pizza')
+  const bibRows = await db.orderLineBibita.where('orderId').equals(orderId).toArray()
+  if (pizzaRows.length === 0 && bibRows.length === 0) {
+    throw new Error('Questo ordine non ha righe da caricare')
+  }
   const pizze: CartPizzaLine[] = []
   for (let idx = 0; idx < pizzaRows.length; idx++) {
     const row = pizzaRows[idx]
@@ -517,16 +525,8 @@ export async function loadOrderIntoCart(orderId: number): Promise<OrderCartLoad>
       tipo: m.tipo,
       prezzoCentesimi: m.prezzoCentesimi,
     }))
-    pizze.push({
-      localId: newLocalIdFallback(idx),
-      pizzaId: row.pizzaId,
-      nome: pizzaNomePerOrdine(row.nomeSnapshot),
-      prezzoBaseCentesimi: row.prezzoBaseSnapshot,
-      mods,
-      nota: row.noteLibere,
-    })
+    pizze.push(cartPizzaLineFromDbRow(row, newLocalIdFallback(idx), mods))
   }
-  const bibRows = await db.orderLineBibita.where('orderId').equals(orderId).toArray()
   const bibite: CartBibitaLine[] = bibRows.map((row, idx) => ({
     localId: newLocalIdFallback(idx + 10000),
     bibitaId: row.bibitaId,
@@ -543,4 +543,31 @@ export async function loadOrderIntoCart(orderId: number): Promise<OrderCartLoad>
 
 function newLocalIdFallback(salt: number): number {
   return Math.floor(Date.now() * 1000 + salt + Math.random() * 1e6)
+}
+
+function cartPizzaLineFromDbRow(
+  row: {
+    pizzaId: number | null
+    nomeSnapshot: string
+    prezzoBaseSnapshot: number
+    noteLibere: string | null
+  },
+  localId: number,
+  mods: CartPizzaLine['mods'],
+): CartPizzaLine {
+  if (
+    row.pizzaId == null &&
+    row.prezzoBaseSnapshot === 0 &&
+    row.nomeSnapshot === ORDER_NOTE_LINE_NOME
+  ) {
+    return createNoteOnlyCartLine(row.noteLibere ?? '', localId)
+  }
+  return {
+    localId,
+    pizzaId: row.pizzaId,
+    nome: pizzaNomePerOrdine(row.nomeSnapshot),
+    prezzoBaseCentesimi: row.prezzoBaseSnapshot,
+    mods,
+    nota: row.noteLibere,
+  }
 }

@@ -12,6 +12,7 @@ import {
 } from '../data/repositories'
 import type { CartBibitaLine, CartPizzaLine, OrderCartLoad } from '../data/cartTypes'
 import { lineTotalBibita, lineTotalPizza, newLocalId } from '../data/cartTypes'
+import { cartHasOrderContent, createNoteOnlyCartLine } from '../domain/orderNoteLine'
 import { pizzaNomePerOrdine } from '../domain/pizzaNome'
 import { useSession } from '../auth/SessionContext'
 import { onOrderConfirmed } from '../util/feedback'
@@ -37,6 +38,7 @@ interface OrderCartContextValue {
   searchMods: (q: string) => Promise<void>
   clearModSearch: () => void
   addPizza: (p: PizzaEntity) => void
+  addNoteLine: (text: string) => boolean
   addBibita: (b: BibitaEntity) => void
   removePizza: (localId: number) => void
   duplicatePizza: (localId: number) => void
@@ -113,6 +115,17 @@ export function OrderCartProvider({ children }: { children: ReactNode }) {
     ])
     setPizzaSearch('')
     setPizzaResults([])
+  }, [])
+
+  const addNoteLine = useCallback((text: string): boolean => {
+    const trimmed = text.trim()
+    if (!trimmed) {
+      setMessage('Scrivi una nota')
+      return false
+    }
+    setPizzaLines((lines) => [...lines, createNoteOnlyCartLine(trimmed, newLocalId())])
+    setMessage(null)
+    return true
   }, [])
 
   const addBibita = useCallback((bibita: BibitaEntity) => {
@@ -245,8 +258,8 @@ export function OrderCartProvider({ children }: { children: ReactNode }) {
 
   const previewOrder = useCallback(async (): Promise<string | null> => {
     try {
-      if (pizzaLines.length === 0) {
-        setMessage('Serve almeno una pizza')
+      if (!cartHasOrderContent(pizzaLines, bibitaLines)) {
+        setMessage("Aggiungi almeno una voce o una nota all'ordine")
         return null
       }
       const state = await getAppState()
@@ -304,7 +317,7 @@ export function OrderCartProvider({ children }: { children: ReactNode }) {
   )
 
   const isCartNonEmpty = useCallback(
-    () => pizzaLines.length > 0 || bibitaLines.length > 0,
+    () => cartHasOrderContent(pizzaLines, bibitaLines),
     [pizzaLines, bibitaLines],
   )
 
@@ -330,6 +343,7 @@ export function OrderCartProvider({ children }: { children: ReactNode }) {
       searchMods,
       clearModSearch,
       addPizza,
+      addNoteLine,
       addBibita,
       removePizza,
       duplicatePizza,
@@ -367,6 +381,7 @@ export function OrderCartProvider({ children }: { children: ReactNode }) {
       searchMods,
       clearModSearch,
       addPizza,
+      addNoteLine,
       addBibita,
       removePizza,
       duplicatePizza,
