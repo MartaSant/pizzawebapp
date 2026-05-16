@@ -477,6 +477,12 @@ export async function getOrdersSince(since: number): Promise<OrderEntity[]> {
   return all.sort((a, b) => b.createdAt - a.createdAt)
 }
 
+/** Totale dell'ordine più recente nello storico (48h), o null se vuoto. */
+export async function getLatestOrderTotaleCentesimi(): Promise<number | null> {
+  const orders = await getOrdersSince(Date.now() - HISTORY_HOURS_MS)
+  return orders[0]?.totaleCentesimi ?? null
+}
+
 export async function getOrderById(id: number): Promise<OrderEntity | undefined> {
   return db.orders.get(id)
 }

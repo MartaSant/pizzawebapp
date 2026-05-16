@@ -373,3 +373,30 @@ textarea {
 .order-tab {
   padding-bottom: 2rem;
 }
+
+.resto-tab {
+  max-width: 22rem;
+}
+
+.resto-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.resto-result {
+  padding: 1rem;
+  text-align: center;
+}
+
+.resto-result__value {
+  display: block;
+  font-size: 1.75rem;
+  color: var(--ok);
+}
+
+.resto-result__negative {
+  display: block;
+  font-size: 1.75rem;
+  color: var(--error);
+}

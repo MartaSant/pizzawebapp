@@ -4,10 +4,11 @@ import { toggleLightDarkFromResolved } from '../data/repositories'
 import { useSession } from '../auth/SessionContext'
 import { OrderTab } from './OrderTab'
 import { HistoryTab } from './HistoryTab'
+import { RestoTab } from './RestoTab'
 import { AdminTab } from './AdminTab'
 import { takeMainTabAfterReceipt } from '../util/receiptNavStaging'
 
-const LABELS = ['Ordine', 'Storico', 'Admin'] as const
+const LABELS = ['Ordine', 'Storico', 'Resto', 'Admin'] as const
 
 export function MainScreen() {
   const [tab, setTab] = useState(0)
@@ -16,7 +17,7 @@ export function MainScreen() {
 
   useLayoutEffect(() => {
     const m = takeMainTabAfterReceipt()
-    if (m != null) setTab(Math.max(0, Math.min(m, 2)))
+    if (m != null) setTab(Math.max(0, Math.min(m, LABELS.length - 1)))
   }, [])
 
   async function onThemeIcon() {
@@ -47,7 +48,8 @@ export function MainScreen() {
       <main className="main-body">
         {tab === 0 && <OrderTab />}
         {tab === 1 && <HistoryTab />}
-        {tab === 2 && <AdminTab />}
+        {tab === 2 && <RestoTab />}
+        {tab === 3 && <AdminTab />}
       </main>
     </div>
   )
